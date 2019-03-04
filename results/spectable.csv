@@ -1,0 +1,4 @@
+"","type","totOpt_tau","totOpt_total_gain","totOpt_alloc_gain","totOpt_inv_loss","tau25_total_gain","allOpt_alloc_gain_pctmax"
+"1","Baseline","4.00%","5.36%","6.60%","-1.24%","4.93%","83.42%"
+"2","Mixbeta","3.10%","3.37%","4.17%","-0.80%","3.31%","73.95%"
+"3","Jump","1.90%","1.86%","2.18%","-0.33%","1.76%","52.92%"

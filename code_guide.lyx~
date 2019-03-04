@@ -1,0 +1,901 @@
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage[T1]{fontenc}
+
+\usepackage[tracking]{microtype}
+
+\usepackage[sc,osf]{mathpazo}   % With old-style figures and real smallcaps.
+\linespread{1.025}              % Palatino leads a little more leading
+
+% Euler for math and numbers
+% \usepackage[euler-digits,small]{eulervm}
+\usepackage{eulervm}
+\end_preamble
+\use_default_options false
+\begin_modules
+theorems-ams-bytype
+theorems-ams-extended-bytype
+\end_modules
+\maintain_unincluded_children false
+\language english
+\language_package none
+\inputencoding utf8
+\fontencoding default
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 0
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 2.5cm
+\topmargin 3cm
+\rightmargin 2.5cm
+\bottommargin 3cm
+\footskip 1cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Code Guide
+\end_layout
+
+\begin_layout Author
+Anthony Lee Zhang
+\end_layout
+
+\begin_layout Section
+Overview
+\end_layout
+
+\begin_layout Standard
+The basis of the calibration is to iterate the operator:
+\begin_inset Formula 
+\[
+\mathcal{T}\left[\hat{V}\right]=\max_{q}\left(q-\tau\right)p_{\hat{V}\left(\cdot\right),F\left(\cdot\right)}\left(q\right)+\left(1-q\right)\left[\gamma+\delta\mathbb{E}_{G\left(\cdot\mid\cdot\right)}\left[\hat{V}\left(\gamma^{\prime}\right)\mid\gamma\right]\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+on candidate 
+\begin_inset Formula $\hat{V}\left(\cdot\right)$
+\end_inset
+
+ functions until convergence, and then characterize the steady state of
+ this.
+ We will computationally do this by operating on quantile grids, with a
+ total of 
+\begin_inset Formula $qres$
+\end_inset
+
+ gridpoints.
+ Any functions of 
+\begin_inset Formula $\gamma$
+\end_inset
+
+, such as 
+\begin_inset Formula $V\left(\gamma\right),WTP\left(\gamma\right)$
+\end_inset
+
+, etc.
+ will be represented as length 
+\begin_inset Formula $qres$
+\end_inset
+
+ vectors, which for code clarity we'll keep together in a data.table.
+ So, for example, we will have vectors:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $Fgam=\left[\frac{1}{qres},\frac{2}{qres},\ldots\frac{qres-1}{qres},1\right]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\gamma=\left[F^{-1}\left(0\right),F^{-1}\left(\frac{1}{qres}\right),\ldots F^{-1}\left(\frac{qres-1}{qres}\right)\right]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $V\left(\gamma\right)=\left[V\left(F^{-1}\left(0\right)\right),V\left(F^{-1}\left(\frac{1}{qres}\right)\right)\right]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+solve_value_function
+\end_layout
+
+\begin_layout Subsection
+Overview
+\end_layout
+
+\begin_layout Standard
+solve_value_function takes as input a data table specifying the quantile
+ vector 
+\begin_inset Formula $\gamma$
+\end_inset
+
+, and an initial value function guess 
+\begin_inset Formula $V\left[\cdot\right]$
+\end_inset
+
+, as well as parameters such as discount rate/decay rate, and iterates the
+ 
+\begin_inset Formula $\mathcal{T}$
+\end_inset
+
+ operator until convergence.
+ It outputs the equilibrium value function, and some auxiliary information
+ like equilibrium sale prices and probabilities, 
+\begin_inset Formula $WTP$
+\end_inset
+
+'s, etc.
+\end_layout
+
+\begin_layout Subsection
+Inputs
+\end_layout
+
+\begin_layout Standard
+solve_value_function begins with a uniformly spaced quantile grid vector.
+ Supposing we use 
+\begin_inset Formula $qres$
+\end_inset
+
+, this will be:
+\end_layout
+
+\begin_layout Standard
+The user specifies a value distribution 
+\begin_inset Formula $F\left(\cdot\right)$
+\end_inset
+
+ over use values 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ by inputting its quantile vector, as:
+\end_layout
+
+\begin_layout Standard
+We will think of everything in terms of 
+\begin_inset Quotes eld
+\end_inset
+
+quantile vectors.
+\begin_inset Quotes erd
+\end_inset
+
+ So, for example, 
+\begin_inset Formula $\gamma\left[q\right]$
+\end_inset
+
+ refers to the value of 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ at the 
+\begin_inset Formula $q$
+\end_inset
+
+'th quantile.
+ We will also need to specify a candidate value function 
+\begin_inset Formula $\hat{V}\left[q\right]$
+\end_inset
+
+ to start the Bellman iteration.
+ These vectors will be given to solve_value_function in a 
+\begin_inset Formula $qres$
+\end_inset
+
+-row data table, with the following columns:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $Fgam$
+\end_inset
+
+: Quantile vector 
+\begin_inset Formula $\left[\frac{1}{qres},\frac{2}{qres},\ldots\frac{qres-1}{qres},1\right]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $fgam$
+\end_inset
+
+: Density at 
+\begin_inset Formula $q$
+\end_inset
+
+, by construction equal to 
+\begin_inset Formula $\frac{1}{qres}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\gamma$
+\end_inset
+
+: Use value at 
+\begin_inset Formula $q$
+\end_inset
+
+th quantile of 
+\begin_inset Formula $F$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $V$
+\end_inset
+
+: Candidate value function at 
+\begin_inset Formula $q$
+\end_inset
+
+th quantile
+\end_layout
+
+\begin_layout Standard
+In addition, we specify the following parameters:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\delta$
+\end_inset
+
+: discount rate
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $decay\_rate$
+\end_inset
+
+: beta decay parameter
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $beta\_shape$
+\end_inset
+
+: beta shape parameter
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $max\_runs$
+\end_inset
+
+: max iterations of Bellman operator (never reached in practice)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $Vtol$
+\end_inset
+
+: sup norm tol of Bellman operator
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $quiet$
+\end_inset
+
+: whether to print output
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $tau\_try$
+\end_inset
+
+: value of tax rate 
+\begin_inset Formula $\tau$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Outputs
+\end_layout
+
+\begin_layout Standard
+The output of solve_value_function appends the following vectors to the
+ data table:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $EV$
+\end_inset
+
+: Period 
+\begin_inset Formula $t+1$
+\end_inset
+
+ expected value
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $WTP$
+\end_inset
+
+: Willingness to pay, where we have 
+\begin_inset Formula $WTP\left[q\right]=\gamma\left[q\right]+\delta EV\left[q\right]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $V$
+\end_inset
+
+: Value function of the 
+\begin_inset Formula $q$
+\end_inset
+
+th quantile asset owner
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $best\_saleprob$
+\end_inset
+
+: optimal sale probability
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $best\_p$
+\end_inset
+
+: optimal price, equal to 
+\begin_inset Formula $WTP\left[1-best\_saleprob\left[q\right]\right]$
+\end_inset
+
+ (i.e.
+ willingness to pay of the marginal buyer)
+\end_layout
+
+\begin_layout Subsection
+Continuation value calculation
+\end_layout
+
+\begin_layout Standard
+We can implement the decay operator 
+\begin_inset Formula $\mathbb{E}_{G\left(\cdot\mid\cdot\right)}\left[\hat{V}\left(\gamma^{\prime}\right)\mid\gamma\right]$
+\end_inset
+
+ as a matrix; since 
+\begin_inset Formula $G$
+\end_inset
+
+ is defined in quantile space, this interfaces well with the quantile grid.
+ In particular, let 
+\begin_inset Formula $P_{\beta}\left(x\right)$
+\end_inset
+
+ be the Beta CDF respectively, shape parameters 
+\begin_inset Formula $C\beta,\ C\left(1-\beta\right)$
+\end_inset
+
+.
+ For given quantile 
+\begin_inset Formula $q\in\left\{ 1,\ldots,qres\right\} $
+\end_inset
+
+, we derive the decay vector: 
+\begin_inset Formula 
+\[
+y_{\beta,q}=\left[P_{\beta}\left(\frac{1}{q}\right),\ P_{\beta}\left(\frac{2}{q}\right)-P_{\beta}\left(\frac{1}{q}\right),\ldots1-P_{\beta}\left(\frac{q-1}{q}\right),0,0,\ldots0\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+i.e.
+ a grid approximation to the decay distribution.
+ Then, conditional on 
+\begin_inset Formula $q$
+\end_inset
+
+, we can implement the expectation operator numerically as: 
+\begin_inset Formula 
+\[
+\mathbb{E}_{G\left(\cdot\mid\cdot\right)}\left[\hat{V}\left(F^{-1}\left(q^{\prime}\right)\right)\mid q\right]=y_{\beta,q}\cdot\hat{V}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In particular we can stack these decay vectors into a matrix: 
+\begin_inset Formula 
+\[
+decay\_matrix=\left[\begin{array}{c}
+y_{\beta,1}\\
+y_{\beta,2}\\
+\vdots\\
+y_{\beta,1000}
+\end{array}\right]=\left[\begin{array}{cccc}
+1 & 0 & 0 & \ldots\\
+P_{\beta}\left(\frac{1}{2}\right) & 1-P_{\beta}\left(\frac{1}{2}\right) & 0 & \ldots\\
+P_{\beta}\left(\frac{1}{3}\right) & P_{\beta}\left(\frac{2}{3}\right)-P_{\beta}\left(\frac{1}{3}\right) & 1-P_{\beta}\left(\frac{2}{3}\right) & \ldots\\
+\vdots & \vdots & \vdots & \ddots
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+And this lets us express the 
+\begin_inset Quotes eld
+\end_inset
+
+continuation utility vector
+\begin_inset Quotes erd
+\end_inset
+
+ as a matrix operator: 
+\begin_inset Formula 
+\[
+E\hat{V}=decay\_matrix\cdot\hat{V}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Maximization
+\end_layout
+
+\begin_layout Standard
+Note that we can also derive a WTP vector, which we'll call 
+\begin_inset Formula $WTP_{\hat{V}}$
+\end_inset
+
+, naturally, and an associated inverse demand distribution...
+\end_layout
+
+\begin_layout Standard
+For each quantile 
+\begin_inset Formula $q$
+\end_inset
+
+ we can thus evaluate the objective function, as:
+\begin_inset Formula 
+\[
+\mathcal{T}\left[\hat{V}\right]\left[q\right]=\max_{q^{\prime}}\left(q^{\prime}-\tau\right)p_{\hat{V}\left(\cdot\right),F\left(\cdot\right)}\left(q^{\prime}\right)+\left(1-q^{\prime}\right)\left[\gamma+\delta\mathbb{E}_{G\left(\cdot\mid\cdot\right)}\left[\hat{V}\left(F^{-1}\left(q^{\prime}\right)\right)\mid q\right]\right]
+\]
+
+\end_inset
+
+ 
+\begin_inset Formula 
+\[
+=\max_{q^{\prime}}\left(q^{\prime}-\tau\right)WTP_{\hat{V}}\left[q^{\prime}\right]+\left(1-q^{\prime}\right)F^{-1}\left(q\right)+\left(1-q^{\prime}\right)\delta\left(M_{\beta}\hat{V}\right)\left[q\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Since we can calculate 
+\begin_inset Formula $M_{\beta}\hat{V}$
+\end_inset
+
+, and we know 
+\begin_inset Formula $WTP_{\hat{V}}$
+\end_inset
+
+, this is now a fairly straightforwards maximization problem, so to evaluate
+ 
+\begin_inset Formula $\mathcal{T}\left[\hat{V}\right]$
+\end_inset
+
+ we can just loop over all 1000 
+\begin_inset Formula $q$
+\end_inset
+
+ values in each iteration.
+ Somewhat counterintuitively, it turned out, in my numerical experiments,
+ that rather than looping, it is actually faster to generate a 1000 x 1000
+ grid and use a group-by operation with data.table to do all the maximizations
+ together, so this is the approach I adopt in the code, although it is somewhat
+ awkward.
+\end_layout
+
+\begin_layout Section
+solve_steadystate
+\end_layout
+
+\begin_layout Standard
+For a given 
+\begin_inset Formula $\tau$
+\end_inset
+
+, the stationary equilibrium defines a Markov process over quantiles 
+\begin_inset Formula $q$
+\end_inset
+
+.
+ By solving for the stationary equilibrium of the Markov process, we can
+ characterize steady-state values, etc.
+\end_layout
+
+\begin_layout Subsection
+Overview
+\end_layout
+
+\begin_layout Standard
+The Markov transition process can be decomposed into two steps:
+\end_layout
+
+\begin_layout Enumerate
+Trade: Quantile 
+\begin_inset Formula $q$
+\end_inset
+
+ sets a saleprob 
+\begin_inset Formula $q^{*}$
+\end_inset
+
+, and sells to all agents with higher values
+\end_layout
+
+\begin_layout Enumerate
+Decay: Owner's value decays by the Beta decay process
+\end_layout
+
+\begin_layout Subsection
+Inputs
+\end_layout
+
+\begin_layout Standard
+Takes as input a data_table output from solve_value_function, that is, with
+ the columns: 
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $Fgam$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $fgam$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $\gamma$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $EV$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $WTP$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $V$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $best\_saleprob$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $best\_p$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In addition we specify the incidental parameters:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $decay\_rate$
+\end_inset
+
+: Beta decay parameter
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $beta\_shape$
+\end_inset
+
+: Beta shape parameter
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $quiet$
+\end_inset
+
+: Whether to print output
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $efficient$
+\end_inset
+
+: Whether we want equilibrium behavior, or socially efficient behavior (hacky,
+ always set to 0 for equilibrium)
+\end_layout
+
+\begin_layout Subsection
+Outputs
+\end_layout
+
+\begin_layout Standard
+Appends the following rows to the data table:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $ss$
+\end_inset
+
+: Stationary density over 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ values of owners
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $val\_ss$
+\end_inset
+
+: Stationary density over 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ values of users -- slightly different from owners, because if the owner
+ sells in period 
+\begin_inset Formula $t$
+\end_inset
+
+, we count the 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ value of the buyer here.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $buyer\_dist$
+\end_inset
+
+: In steady state, distribution over buyers' quantiles
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $seller\_dist$
+\end_inset
+
+: In steady state, distribution over sellers' quantiles
+\end_layout
+
+\begin_layout Subsection
+Details
+\end_layout
+
+\begin_layout Subsubsection
+Trade
+\end_layout
+
+\begin_layout Standard
+Given a quantile 
+\begin_inset Formula $q$
+\end_inset
+
+ and her optimal choice 
+\begin_inset Formula $q_{q}^{*}$
+\end_inset
+
+, transition is uniform from 
+\begin_inset Formula $q_{q}^{*}$
+\end_inset
+
+ upwards, so, 
+\begin_inset Formula 
+\[
+T_{q}=\left[0,\ldots0,\frac{1}{1-q_{q}^{*}},\frac{1}{1-q_{q}^{*}},\ldots\frac{1}{1-q_{q}^{*}}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This can be stacked into a matrix:
+\begin_inset Formula 
+\[
+tradeprob\_matrix=\left[\begin{array}{ccccc}
+0 & \frac{1}{1-q_{1}^{*}} & \frac{1}{1-q_{1}^{*}} & \frac{1}{1-q_{1}^{*}} & \ldots\\
+0 & 0 & \frac{1}{1-q_{2}^{*}} & \frac{1}{1-q_{2}^{*}} & \ldots\\
+0 & 0 & \frac{1}{1-q_{3}^{*}} & \frac{1}{1-q_{3}^{*}} & \ldots\\
+0 & 0 & 0 & 0 & \ldots\\
+\vdots & \vdots & \vdots & \vdots & \ddots
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Decay
+\end_layout
+
+\begin_layout Standard
+Decay matrix is just 
+\begin_inset Formula $M_{\beta}$
+\end_inset
+
+ from above:
+\begin_inset Formula 
+\[
+decay\_matrix=\left[\begin{array}{c}
+y_{\beta,1}\\
+y_{\beta,2}\\
+\vdots\\
+y_{\beta,1000}
+\end{array}\right]=\left[\begin{array}{cccc}
+1 & 0 & 0 & \ldots\\
+P_{\beta}\left(\frac{1}{2}\right) & 1-P_{\beta}\left(\frac{1}{2}\right) & 0 & \ldots\\
+P_{\beta}\left(\frac{1}{3}\right) & P_{\beta}\left(\frac{2}{3}\right)-P_{\beta}\left(\frac{1}{3}\right) & 1-P_{\beta}\left(\frac{2}{3}\right) & \ldots\\
+\vdots & \vdots & \vdots & \ddots
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Stationary distribution
+\end_layout
+
+\begin_layout Standard
+Now we can get the full transition matrix as: 
+\begin_inset Formula 
+\[
+M=decay\_matrix\cdot tradeprob\_matrix
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is always ergodic.
+ So we can use a formula from Resnick (Adventures in Stochastic Processes,
+ pg 138) to get the unique stationary distribution:
+\begin_inset Formula 
+\[
+\pi^{\prime}=\left(1,\ldots,1\right)\left(I-M+ONE\right)^{-1}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The stationary distribution over 
+\begin_inset Formula $q$
+\end_inset
+
+ values then allows us to compute all the values of interest.
+\end_layout
+
+\end_body
+\end_document
